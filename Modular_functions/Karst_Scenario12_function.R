@@ -18,7 +18,7 @@
 
 GW_karst_Scenario12<- function(par,soilmoisture, D_GW,D_S, GSini,SPI,GS_B){
   o= data.frame(matrix(nrow=length(soilmoisture$Rch), ncol=11, 
-                       dimnames=list(NULL, c('Rch','Qr','Qb','Qs','GSimp','GS',"D_gwDMP",'Res','Qimp','Qout','D_swDMP'))))
+                       dimnames=list(NULL, c('Rch','Qr','Qb','Qs','GSimp','GS',"D_gwDMP",'Res','Qimp','Qrel','D_swDMP'))))
   
   o$Rch <- soilmoisture$Rch         # import recharge from your soil moisture module
   o$Qr <- soilmoisture$Qr           # import runoff from your soilmoisture module

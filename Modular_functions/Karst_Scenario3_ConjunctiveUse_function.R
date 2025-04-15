@@ -18,7 +18,7 @@
 
 
 
-GW_karst_S3CU<- function(par,soilmoisture, D_GW,D_SW, GSini,GS_B,ResCAP,Qeco){
+GW_karst_S3CU<- function(par,soilmoisture, D_GW,D_SW, GSini,GS_B,ResCAP,Qbeco){
   #create new dataframe o to store variables
   o= data.frame(matrix(nrow=length(soilmoisture$Rch), ncol=14, 
   dimnames=list(NULL, c('Rch','Qr','Qb','QRes','Qs','GSimp','GS','GS_Perc',"D_CUgw",'Res','Res_Perc','Qimp','Qrel','D_CUsw'))))
@@ -42,7 +42,7 @@ GW_karst_S3CU<- function(par,soilmoisture, D_GW,D_SW, GSini,GS_B,ResCAP,Qeco){
   o$Res[1]=ResCAP                                                 # Reservoir is full at the start.
                                                                   # Note that ResCAP = Rcap parameter * mean Annual P
 
-  ##adjustment in case the Reservoir capacity is zero
+  ##adjustment in case the Reservoir capacity is zero (turning off the reservoir unit)
   if(ResCAP==0){o$Res_Perc = 0
   }else{    o$Res_Perc[1] <- o$Res[1]/ResCAP}
   
@@ -64,7 +64,7 @@ GW_karst_S3CU<- function(par,soilmoisture, D_GW,D_SW, GSini,GS_B,ResCAP,Qeco){
 
     #Determine groundwater storage with new water demand $D_CUgw 
     o$Qb[t] =par[9]*o$GS[t]^par[10]                               # Generating baseflow (Qb)
-    o$QRes[t] <-ifelse(o$Qb[t]-Qeco>0, o$Qb[t]-Qeco, 0)           # Remainder of baseflow (_Qbeco)to be routed to reservoir (QRes)
+    o$QRes[t] <-ifelse(o$Qb[t]-Qbeco>0, o$Qb[t]-Qbeco, 0)         # Remainder of baseflow (Qb - Qbeco)to be routed to reservoir as QRes
     o$Qs[t] = o$Qr[t]+o$Qb[t]                                     # Final term for discharge, sum of runoff (Qr) and baseflow (Qb)
     o$GS[t+1] = o$GS[t]+o$Rch[t]-o$Qb[t]- o$D_CUgw[t]             # Groundwater balance with outgoing baseflow and ADJUSTED water demand, incoming recharge
     o$GSimp[t+1] = ifelse(o$GS[t+1]>=0,0,-o$GS[t+1])              # In case groundwater storage is below 0 and water is imported 

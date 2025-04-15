@@ -15,7 +15,7 @@
 GW_karst_Baseline<- function(par,soilmoisture, D_GW, GSini){
   #create new dataframe o to store variables
   o= data.frame(matrix(nrow=length(soilmoisture$Rch), ncol=9, 
-                       dimnames=list(NULL, c('Rch','Qr','Qb','Qs','GSimp','GS','Res','Qimp','Qout'))))
+                       dimnames=list(NULL, c('Rch','Qr','Qb','Qs','GSimp','GS','Res','Qimp','Qrel'))))
 
   o$Rch <- soilmoisture$Rch           # import recharge from your soil moisture module
   o$Qr <- soilmoisture$Qr             # import runoff from your soilmoisture module
