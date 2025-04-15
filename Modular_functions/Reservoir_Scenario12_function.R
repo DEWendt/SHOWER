@@ -29,8 +29,8 @@ Res_S12 = function(ResCAP, GS, D_SW,SPI,D_S){
  
      #Determine reservoir storage with new water demand D_SWDMP
   for(t in 1:(length(GS$Rch)-1)){
-    GS$Res[t+1]=GS$Res[t]-D_swDMP +GS$Qb[t]+GS$Qres[t]+GS$Qimp[t] # Reservoir storage with incoming Qr, QRes, Imported SW and outgoing D_swDMP
-    if(o$Res[t+1] < ResCAP){                                      # If reservoir storage is less than capacity > no release flow (Qrel)
+    GS$Res[t+1]=GS$Res[t]-GS$D_swDMP[t] +GS$Qb[t]+GS$Qres[t]+GS$Qimp[t] # Reservoir storage with incoming Qr, QRes, Imported SW and outgoing D_swDMP
+    if(GS$Res[t+1] < ResCAP){                                      # If reservoir storage is less than capacity > no release flow (Qrel)
       GS$Qrel[t] =0
       GS$Res[t+1] = GS$Res[t+1] + GS$Qimp[t+1]
       

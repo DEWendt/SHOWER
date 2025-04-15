@@ -23,7 +23,7 @@ Res_Baseline = function(ResCAP, GS, D_SW){
   #Determine reservoir storage with new water demand D_SW
   for(t in 1:(length(GS$Rch)-1)){
     GS$Res[t+1]=GS$Res[t]-D_SW +GS$Qb[t]+GS$Qres[t]+GS$Qimp[t]  # Reservoir storage with incoming Qr, QRes, Imported SW and outgoing D_SWDMP
-    if(o$Res[t+1] < ResCAP){                                    # If reservoir storage is less than capacity > no release flow (Qrel)
+    if(GS$Res[t+1] < ResCAP){                                    # If reservoir storage is less than capacity > no release flow (Qrel)
       GS$Qrel[t] =0
       GS$Qimp[t+1]=ifelse(GS$Res[t+1]>=0,GS$Qimp[t+1],
                             GS$Qimp[t+1]-GS$Res[t+1])           # Qimp is only used when reservoir storage is below zero

@@ -31,7 +31,7 @@ SoilBalance_HBVAdjustment_CAMELS = function(P,PET,D,par) {
     
     #Following Equation S1-S4 in SI
     if(o_LT$SS[t] >= par[3]){               # if o$SS[t] >= field capacity: Soil becomes saturated
-      o_LT$ETa[t] =  o_LT$ETp[t]            # Assumption that ETa is ETp when saturated 
+      o_LT$ETa[t] =  o_LT$PET[t]            # Assumption that ETa is PET when saturated 
       o_LT$Rch[t] <-  0                     # No infiltration: bucket fills till FC 
       o_LT$Qr[t]  <- o_LT$SS[t] - par[3]    # Generated runoff: water in excess in SS relative to FC 
     
@@ -43,7 +43,7 @@ SoilBalance_HBVAdjustment_CAMELS = function(P,PET,D,par) {
       
         } else{
         if(o_LT$SS[t] <=par[2]){            # if soil is between Wilting point and Critical moisture content 
-          o_LT$ETa[t] = o_LT$ETp[t] * (o_LT$SS[t]-par[1])/(par[2]-par[1]) 
+          o_LT$ETa[t] = o_LT$PET[t] * (o_LT$SS[t]-par[1])/(par[2]-par[1]) 
                                             #  ETa with correction factor for soil saturation (Equation S1)
           o_LT$ETa[t]<-  o_LT$ETa[t]+ max(o_LT$SS[t] - o_LT$ETa[t] - par[3], 0) + min(o_LT$SS[t] - o_LT$ETa[t], 0) 
                                             ## HBV-like fix to adjust ETa by an amount equal to the possible negative Soil moisture amount 
@@ -52,7 +52,7 @@ SoilBalance_HBVAdjustment_CAMELS = function(P,PET,D,par) {
           o_LT$Qr[t] =ifelse(o_LT$P[t]<= 2,0,par[6]*o_LT$P[t]) # only through flow
         
           }else{                            # if o$SS[t] between Critical soil moisture and field capacity > dry and becomes wetter to FC  
-          o_LT$ETa[t] = o_LT$ETp[t]         # optimal ETa
+          o_LT$ETa[t] = o_LT$PET[t]         # optimal ETa
           o_LT$Rch[t] = par[4] * ((o_LT$SS[t]-par[2])/(par[3]-par[2]))^par[5] 
                                             # recharge with correction factor for soil saturation (Equation S3)
           o_LT$Rch[t]<- o_LT$Rch[t]+ max(o_LT$SS[t] +o_LT$Pra[t] - o_LT$Rch[t] - par[3], 0) + min(o_LT$SS[t] +o_LT$Pra[t] - o_LT$Rch[t], 0)
