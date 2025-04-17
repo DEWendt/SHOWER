@@ -1,0 +1,149 @@
+##Load Groundwater data - selected on having influence of Reservoir operations##
+
+Aim of this script is to clean the EA data and select one/multiple catchment(s) that has Reservoir impact in their hydrograph & groundwater observations to use for SHOWER
+
+```{r, echo=FALSE}
+rm(list=ls())
+
+#packages
+library(dplyr)
+library(zoo)
+library(lubridate)
+library(sf)
+
+
+##Locations for files:
+#input
+path_GW= '~/Data/EA_GWlevels/GroundWaterLevel/'   #A location where you saved the required GW wells
+
+Localrepo_Data = '~/GitHub/SHOWER/InputData/'
+```
+
+#select the 19 wells in CAMS catchment > 1990 - 2014
+
+#load GW wells From local Repo
+```{r}
+#  CAMS 33024 - 19 wells
+Spatial_Pang=sf::st_read(dsn = paste0(Localrepo_Data,"GW_39027.gdb"))
+length(Spatial_Pang$stationGuid)
+
+#Make a date sequence
+D_9014 = seq.Date(from=as.Date('01-01-1990',format='%d-%m-%Y'),to=as.Date('31-12-2014',format='%d-%m-%Y'), by='day')
+M_9014 = as.data.frame(seq.Date(from=as.Date('01-01-1990',format='%d-%m-%Y'),to=as.Date('31-12-2014',format='%d-%m-%Y'), by='month')) #300 data points minimum
+colnames(M_9014) <- 'D'
+
+```
+
+#start cleaning / organising the data
+
+```{r}
+#Function to aggregate to Monthly data
+MonAgg <- function(GW_dataset,Mdate){
+RD<- GW_dataset%>% mutate(date = as.Date(D)) %>% 
+  mutate(ym = format(D, '%Y-%m')) %>% 
+  group_by(ym) %>% 
+  summarize(ym_mean = mean(value))
+RD$Date <- as.Date(paste0(RD$ym, "-01"), format='%Y-%m-%d')
+
+##merge with Date sequence
+mRD <- merge(RD[,c(2,3)],Mdate,by.x = 'Date',by.y='D', all.y = T)
+return(mRD)
+}
+
+
+#create df to save averaged time series in: 
+G_Pang= M_9014
+
+for (i in 1:17) { #this is the number of wells in PANG
+  RD.Check=read.csv(paste0(path_GW,Spatial_Pang$stationGuid[i],'-gw-dipped-i-mAOD-qualified.csv'),
+                    skip=1,stringsAsFactors = F)
+  RD.Check$D <-  as.Date(RD.Check$date, format='%Y-%m-%d')
+  C_names = Spatial_Pang$Name
+ C_monthly = MonAgg(RD.Check,Mdate = M_9014)
+plot(C_monthly$Date, C_monthly$ym_mean,type='b',main=paste(C_names[i])) 
+G_Pang[,i] <- C_monthly$ym_mean
+ }
+
+
+
+```
+
+#Some wells are excluded, mentioned in Manuscript.
+##See here my notes when reviewing the data:
+Everington House - subdaily is better data > not sufficiently long.. - remove
+Montpelier house - odd readings in 1990-93. unchecked and unreliable - remove
+Hartridge Farm - deleted one low reading UNFLAGGED > Corrected : _DELReading
+Hodcutt - subdaily is better data > not sufficiently long.. - remove
+
+##remove the ones with data issues > done [24-11]
+```{r}
+# re-run with deleted points & duplicates
+colnames(G_Pang)[1:17] <- C_names [1:17 ]
+C_PangCor=G_Pang
+#lines  c(3, 10, 15:17, 19)
+# i=3
+for (i in c(15)) {
+  RD.Check=read.csv(paste0(path_GW,Spatial_Pang$stationGuid[i],'-gw-dipped-i-mAOD-qualified_DELReading.csv'),
+                    skip=1,stringsAsFactors = F)
+  RD.Check$D <-  as.Date(RD.Check$date, format='%d/%m/%Y')
+  # C_names = Spatial_Cams$Name
+ C_monthly = MonAgg(GW_dataset = RD.Check,Mdate = M_9014)
+plot(C_monthly$Date, C_monthly$ym_mean,type='b',main=paste(C_names[i])) 
+C_PangCor[,i] <- C_monthly$ym_mean
+}
+
+C_PangD=C_PangCor[,c(1:6, 8:12,14,15,17)] #remove Everington House (7th column), Montpelier House (13th column), Hodcutt (16th column)
+
+
+```
+
+
+make into scaled time series and compare if I want to use a selection of the 2 sites and/or a mean of these
+```{r GWL01 convertion}
+#frm other script > normalise the data:
+##convert to 0 -1
+ts01 <- function(x){
+  y= (x-min(x, na.rm=T))/(max(x, na.rm = T)-min(x, na.rm = T))
+  return(y)}
+
+GWL01= M_9014
+
+for(t in 1:length(C_PangD)){
+  Norm_ts = ts01(C_PangD[,t])
+  GWL01[,t] <- Norm_ts
+}
+colnames(GWL01) <- colnames(C_PangD)
+
+#compute mean: 
+GWL01$comp = rowMeans(GWL01[,1:14], na.rm = T)
+GWL01$D = M_9014$D
+
+```
+
+
+Final quick plot to view if the data is good enough to use
+```{r}
+{
+plot(GWL01$D, GWL01$`Lower Chance Farm SU58_89`, type='l', ylim=c(0,1), col='darkgrey')
+lines(GWL01$D, GWL01$`Malthouse SU48_34`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Calvesleys Farm SU57_159`,type='l', col='grey')
+lines(GWL01$D, GWL01$`Woodend SU57_155`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Ashridge Wood SU47_140`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Briff Lane SU56_119`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Mayfield Farm SU57_158`, type='l', col='grey')
+lines(GWL01$D, GWL01$`The Barracks SU48_71`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Compton Shepherds Hill SU57_154`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Marlston Farm SU57_161`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Bottom Barn SU57_153`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Beenham SU56_220`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Hartridge Farm SU57_39`, type='l', col='grey')
+lines(GWL01$D, GWL01$`Bere Court Farm SU67_84`, type='l', col='grey')
+lines(GWL01$D, GWL01$comp, type='l', lwd=2)
+}
+
+##write away as_01 GWL time series > Original & total
+# write.csv(GWL01, paste0(Localrepo_Data,'GWL01_Pang39027_14Sites_Cor.csv'),row.names=F)
+
+```
+
+#end
