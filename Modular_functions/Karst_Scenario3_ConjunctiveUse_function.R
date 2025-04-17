@@ -13,10 +13,6 @@
 # run by GW_karst_Baseline with the spinup climate dataset
 
 #This GW_karst function is for the third scenario using conjunctive use. 
-#Water demand (D_GW) is adjusted depending on the trigger levels DMP1-3 that relate to either SPI or baseline GS
-#Adjustments for water demand should be listed in D_S[1-3]. See also complete script for scenario 1 and 2
-
-
 
 GW_karst_S3CU<- function(par,soilmoisture, D_GW,D_SW, GSini,GS_B,ResCAP,Qbeco){
   #create new dataframe o to store variables
