@@ -71,7 +71,7 @@ Baseline_CAMELS_KarsticModule=function(P,PET,D,par){
     summarise(Pmon=sum(P,na.rm=T),.groups = 'drop')     # Use the mean annual precipitation of a site to determine
   ResCAP=par[7]*mean(P_YM$Pmon)                            # reservoir capacity with parameter 7 
 
-    source(paste0(Localrepo,'Reservoir_Baseline_function.r'))
+    source(paste0(Localrepo,'Downstream_Reservoir_Baseline_function.r'))
   WRR_L=Res_Baseline(ResCAP=ResCAP,GS=GS_B,D_SW = TD_SW)         #Calculate downstream reservoir storage 
   
   ##return full dataset
