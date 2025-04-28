@@ -33,11 +33,10 @@
 Localrepo = '~/GitHub/SHOWER/Modular_functions/'
 
 # You can use this script as is, or comment the function (line 38) 
-# and return lines (119 and 120) to have a fully functional script.
+# and return lines (79 and 80) to have a fully functional script.
 
-S2_CAMELS_KarsticModule=function(P, PET, D, par){
-  
-    source(paste0(Localrepo,'SoilMoisture_function.r'))
+S3_CAMELS_KarsticModule=function(P, PET, D, par){
+  source(paste0(Localrepo,'SoilMoisture_function.r'))
   o_LT= SoilBalance_HBVAdjustment_CAMELS(P=P, PET=PET,D=D,par = par)    #Soil moisture run of whole period
   
   #Calculate the mean annual runoff & recharge to define the amount of water use from Dsw and Dgw 
@@ -53,7 +52,7 @@ S2_CAMELS_KarsticModule=function(P, PET, D, par){
   LT_GSstorage=LT_Rch-(LT_Rch*(1-exp(-par[9]))^par[10])   # First value in mm 
   SS_spin=o_LT[1:spinup,]                                 # Subset the soil moisture dataframe for the initial spin up period
   
-    source(paste0(Localrepo,'Karst_Baseline_function.r'))
+  source(paste0(Localrepo,'Karst_Baseline_function.r'))
   GS_spin=GW_karst_Baseline(par=par, soilmoisture = SS_spin,D_GW=TD_GW, GSini = LT_GSstorage)
   
   #Full groundwater run
@@ -63,58 +62,21 @@ S2_CAMELS_KarsticModule=function(P, PET, D, par){
                             D_GW=TD_GW, 
                             GSini = last(GS_spin$GS))     # Groundwater run using initial conditions
   
-  #Determine the trigger levels for groundwater
-  ##Note that these years are a result of averaged trigger levels from drought plans published by UK drinking water companies
-  ##See Wendt et al. (2021 NHESS) for details
-  GS_B$GS_DMP1  <- ifelse(GS_B$GS<=quantile(GS_B$GS,(1/8.5)),1,0)   # Triggerlevels are set to 1 once in 8.5 years for the first DMP
-  GS_B$GS_DMP2  <- ifelse(GS_B$GS<=quantile(GS_B$GS,(1/22.5)),1,0)  # Second trigger level is set to 1 in 22.5 years
-  GS_B$GS_DMP3  <- ifelse(GS_B$GS<=quantile(GS_B$GS,(1/69)),1,0)    # Third trigger level is set to 1 in 69 years
-  
-  # SPI trigger levels 
-  P_YM <- o_LT %>% group_by(month(D),year(D)) %>% 
-    summarise(Pmon=sum(P,na.rm=T),.groups = 'drop')               #Use the mean monthly precipitation to calculate alternative threshold levels
-  P_YM$D <- seq.Date(from=as.Date(D[1], format('%d-%m-%Y')),
-                     to=as.Date(last(D), format('%d-%m-%Y')), 
-                     by='month')
-  dt1 <- data.table::data.table(id=P_YM$D,  val1=P_YM$Pmon, key="id")
-  dt2 <- data.table::data.table(id=SS_run$D , val2=SS_run$Pra, key="id")
-  rollSPI <- dt1[dt2,roll=TRUE]                                     #Slighlty clunky way of reframing the monthly precipitation.
-  
-  rollSPI$DMP1  <- ifelse(rollSPI$val1<= 
-                            quantile(P_YM$Pmon, prob=(1/8.5)) ,1,0) # Not the most elegant way to get the thresholds but it works ;)
-  rollSPI$DMP2  <- ifelse(rollSPI$val1<=
-                            quantile(P_YM$Pmon, prob=(1/22.5)),1,0) # The quantiles function to mark with 1 and 0 when the thresholds are reached
-  rollSPI$DMP3  <- ifelse(rollSPI$val1<=
-                            quantile(P_YM$Pmon, prob=(1/69)),1,0)
-  
-  #Drought management practices 
-  D_GW2 =c(-0.05, -0.12, -0.36) *0.5                              # Groundwater use is set to increase following these percentages
-  ##Note that these percentages were a result of averaged drought measures, see Wendt et al. 2021 for details
-
-  #Second groundwater run
-    source(paste0(Localrepo,'Karst_Scenario12_function.r'))
-  GS_S2=GW_karst_Scenario12(par=par, soilmoisture = SS_run,         # Groundwater run with scenario 2 implemented
-                            D_GW=TD_GW,D_S = D_GW2, 
-                            GSini = last(GS_spin$GS),
-                            SPI = rollSPI, GS_B=GS_B) 
-  
   #reservoir storage run
   QEco_Ks=quantile(GS_B$Qb,par[8],names = F, na.rm=T)     # Determine the amount of Qbeco from Qeco and the calculated baseflow (Qb)
-  GS_S2$Qres = ifelse(GS_B$Qb-QEco_Ks>0, 
-                     GS_B$Qb-QEco_Ks, 0)                  # in Scenario 2, the Qres (remainder flow) is defined here as Qb-Qbeco
   
   #Define initial conditions for reservoir
-  ResCAP=par[7]*mean(P_YM$Pmon)                           # Converting the reservoir capacity (%) into  max amount
-
-  #DMP measure *surface water_share
-  D_SW2 <- c(-0.05, -0.12, -0.36) *.5                     # Surface water use is set to increase following these percentages
-  ##Note that these percentages were a result of averaged drought measures, see Wendt et al. 2021 for details
-
-    source(paste0(Localrepo,'Downstream_Reservoir_Scenario12_function.r'))  
-  WRR_L=Res_S12(K=ResCAP,GS=GS_S2,D_SW = TD_SW,
-                SPI = rollSPI,D_S=D_SW2)                  #Calculate downstream reservoir storage 
+  P_YM <-o_LT %>% group_by(month(D),year(D)) %>% 
+    summarise(Pmon=sum(P,na.rm=T),.groups = 'drop')       # Use the mean annual precipitation of a site to determine
+  ResCAP=par[7]*mean(P_YM$Pmon)                           # reservoir capacity with parameter 7 
   
+  #Second groundwater run
+    source(paste0(Localrepo,'Karst_Scenario3_ConjunctiveUse_function.r'))
+  GS_S3=GW_karst_S3CU(par=par, soilmoisture = SS_run,     # Groundwater run with conjunctive use implemented
+                      D_GW=TD_GW,D_SW = TD_SW, 
+                      GSini = last(GS_spin$GS),GS_B=GS_B,
+                      ResCAP = ResCAP, Qbeco=QEco_Ks)
   ##return full dataset
   # you can specify to only spit out groundwater / surface water / reservoir time series for further calculations
-  return(WRR_L)
+  return(GS_S3)
 }

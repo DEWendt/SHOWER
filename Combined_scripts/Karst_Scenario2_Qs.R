@@ -110,7 +110,7 @@ S2_CAMELS_KarsticModule=function(P, PET, D, par){
   D_SW2 <- c(-0.05, -0.12, -0.36) *.5                     # Surface water use is set to increase following these percentages
   ##Note that these percentages were a result of averaged drought measures, see Wendt et al. 2021 for details
 
-    source(paste0(Localrepo,'Reservoir_Scenario12_function.r'))  
+    source(paste0(Localrepo,'Downstream_Reservoir_Scenario12_function.r'))  
   WRR_L=Res_S12(ResCAP=ResCAP,GS=GS_S2,D_SW = TD_SW,
                 SPI = rollSPI,D_S=D_SW2)                  #Calculate downstream reservoir storage 
   

@@ -1,0 +1,318 @@
+---
+title: "SHOWER Combined Script"
+author: "Doris E Wendt"
+date: "2025-04-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r Load file locations and packages, echo=FALSE}
+rm(list=ls())
+
+##Save your functions in this location:
+Localrepo_Scripts = '~/GitHub/SHOWER/Combined_scripts/'
+Localrepo_Data = '~/GitHub/SHOWER/InputData/'
+Localrepo = '~/GitHub/SHOWER/Modular_functions/'
+
+library(lubridate)
+library(dplyr)
+
+# for first time installation of SAFER
+# install.packages("http://www.maths.bris.ac.uk/~mazjcr/calibrater_0.51.tar.gz", repos = NULL, type = "source")
+# install.packages("~/safe_trails/safer_1.2.1/SAFER_1.2.1.tar.gz", repos = NULL, type="source")
+
+library(SAFER)
+```
+
+#load data
+
+```{r}
+## Climate input  TS CAMELS
+## Station info at Pang can be found here: https://nrfa.ceh.ac.uk/data/station/info/39027
+
+Pang_TS= read.csv(paste0(Localrepo_Data,'CAMELS_GB_hydromet_timeseries_39037_19701001-20150930.csv'),stringsAsFactors = F)
+Pang_TS$D = as.Date(Pang_TS$date, format='%Y-%m-%d')
+dateRange <- c("1990-01-01", "2014-12-31")
+D=seq.Date(from=as.Date(dateRange[1]), to = as.Date(dateRange[2]),by='day')
+
+VALstart='01-01-2000'
+VALend= '31-12-2014'
+
+##CHANGED to start simulations in 20004 using a spin up (similar for calibration runs)
+spinup= 4*365 +2 # in days => 4 years +2 days from 2000 - end of 2003
+Pang_Val= Pang_TS[Pang_TS$D >= as.Date(VALstart, format='%d-%m-%Y')  & Pang_TS$D <= data.table::last(D), ]
+D_Val= D[which(D==as.Date(VALstart, format='%d-%m-%Y')): length(D)] #1994 - 2014
+
+#double-check values
+# first(D_Val)
+# tail(D_Val)
+
+#Isolate the P and PET strings for the functions
+P = Pang_Val$precipitation #length(P) = 9131 days
+PET = Pang_Val$pet 
+
+#Observed Qs > Trim the dataframe again to only 01-01-2004 -  31-12-2014
+Pang_10y= Pang_TS[Pang_TS$D >= D_Val[spinup] & Pang_TS$D <=data.table::last(D_Val), ]
+Qs_10y = Pang_10y$discharge_spec
+D_10y = D_Val[spinup:5479]
+
+#Read in Validation N1000 Par values -Best Overall (others can be read in and compared; these are stored in the InputData/Validation folder)
+Par_PangNSElog = read.csv(paste0(Localrepo_Data,'Validation/N10000PAR_NSElog_ChalkPang.csv'),stringsAsFactors = F)
+
+dim(Par_PangNSElog) #Should be : 9960 - 13 parameters
+PPar_Best=as.matrix(Par_PangNSElog)
+```
+
+```{r}
+# Load combined functions 
+
+#Pre-scripted Groundwater scenarios
+source(paste0(Localrepo_Scripts,'Karst_Baseline_Qs.r'))
+source(paste0(Localrepo_Scripts,'Karst_Scenario1_Qs.r'))
+source(paste0(Localrepo_Scripts,'Karst_Scenario2_Qs.r'))
+source(paste0(Localrepo_Scripts,'Karst_Scenario3_Qs.r'))
+source(paste0(Localrepo_Scripts,'Karst_Scenario4_Qs.r'))
+
+##Introduce a switch function to use the calibration/validation Par file:
+##the switch is triggered by par[13] that goes from 1-5 for the different scenarios
+
+SHOWER_CAMELS_Karst_SWITCHER <- function(par,P,PET,D){
+  switch(par[13],
+         {WRR = Baseline_CAMELS_KarsticModule(P, PET, D, par)  },
+         {WRR=S1_CAMELS_KarsticModule(P, PET, D, par)},
+         {WRR=S2_CAMELS_KarsticModule(P, PET, D, par)},
+         {WRR=S3_CAMELS_KarsticModule(P, PET, D, par)},
+         {WRR=S4_CAMELS_KarsticModule(P, PET, D, par)},
+         stop("Enter 1-5 that switches me!
+               Options are: Baseline, S1_WaterSupply,S2_DemandReduction, S3_ConjunctiveUse, S4_EcologicalFlow")
+  )
+  counter <<- counter+1
+  print(paste(counter))
+  return(WRR)
+}
+
+```
+
+#Test for each scenario
+##Uncommented for now -but feel free to use the script for further testing
+```{r}
+#Conjunctive use:
+#  par=PPar_Best[1,] #scenario 3
+#  P=P
+#  D=D_Val
+#  PET=PET
+#  counter=1
+# 
+#   ##record trial runs
+# {start.time = Sys.time()
+# 
+# Y_Qs_VAL_S3 = SHOWER_CAMELS_Karst_SWITCHER(par,P,PET, D_Val) #par1 = scenario 2 > test others too
+# 
+# end.time <- Sys.time()
+# time.taken <- end.time - start.time
+# time.taken ##2.58 s
+# }
+# 
+# # ecological flow
+# par=PPar_Best[2,] #scenario 4
+# 
+#   ##record trial runs
+# {start.time = Sys.time()
+# 
+# Y_Qs_VAL_S4 = SHOWER_CAMELS_Karst_SWITCHER(par,P,PET, D_Val) #par1 = scenario 2 > test others too
+# 
+# end.time <- Sys.time()
+# time.taken <- end.time - start.time
+# time.taken ##2.72 s
+# }
+# 
+# # Reduced water demand
+# par=PPar_Best[3,] #scenario 2
+# 
+#   ##record trial runs
+# {start.time = Sys.time()
+# 
+# Y_Qs_VAL_S2 = SHOWER_CAMELS_Karst_SWITCHER(par,P,PET, D_Val) #par1 = scenario 2 > test others too
+# 
+# end.time <- Sys.time()
+# time.taken <- end.time - start.time
+# time.taken ##3.23 s
+# }
+# 
+# # Increased groundwater use
+# par=PPar_Best[8,] #scenario 1
+# 
+#   ##record trial runs
+# {start.time = Sys.time()
+# 
+# Y_Qs_VAL_S1 = SHOWER_CAMELS_Karst_SWITCHER(par,P,PET, D_Val) #par1 = scenario 2 > test others too
+# 
+# end.time <- Sys.time()
+# time.taken <- end.time - start.time
+# time.taken ##3.1 s
+# }
+# 
+# #Baseline
+# par=PPar_Best[11,] # baseline
+# 
+#   ##record trial runs
+# {start.time = Sys.time()
+# 
+# Y_Qs_VAL_Baseline = SHOWER_CAMELS_Karst_SWITCHER(par,P,PET, D_Val) #par1 = scenario 2 > test others too
+# 
+# end.time <- Sys.time()
+# time.taken <- end.time - start.time
+# time.taken ##1.96 s
+# }
+
+```
+#Test plot
+##Uncommented for now -but feel free to use the script for further testing
+```{r}
+# #Quick plot to check the output of the separate scenarios
+#  plot(D_10y,Qs_10y, type='p', ylim=c(0,20), xlab='', ylab='Discharge (mm/s)')
+#  lines(D_10y, Y_Qs_VAL_Baseline, col='black')
+#  lines(D_10y, Y_Qs_VAL_S1, col='blue')
+#  lines(D_10y, Y_Qs_VAL_S2, col='red')
+#  lines(D_10y, Y_Qs_VAL_S3, col='orange')
+# lines(D_10y,Y_Qs_VAL_S4, col='green')
+
+#same colour scheme as Figure 5 in Manuscript
+```
+
+Run the whole validation Par set with the SAFER functions:
+
+##Turn the counter off if you don't want to have the long output of the function.
+Total time for 1000 runs is approximately 20-40min depending on how much you are doing at the same time on your laptop/desktop.
+##Currently uncommented
+
+```{r}
+# #VALIDATION run
+# counter =1 
+# myfun = 'SHOWER_CAMELS_Karst_SWITCHER'
+# 
+# {start.time = Sys.time()
+# 
+# Y_QsVAL_KARST <- model_execution(myfun, PPar_Best, P=P,PET=PET, D=D_Val)  # size (N,2)
+# 
+# end.time <- Sys.time()
+# time.taken <- end.time - start.time
+# time.taken ##2.4 min for 100 runs
+# } ##5.1h for 10000 runs 
+
+##time recordings: 
+##2.4 min for 100 runs
+##23 min for 1000 runs # 2nd try is 44 min (lots open at the same time)
+##3rd try is 35min
+# dim(Y_GSVAL)
+# 
+# write.csv(Y_QsVAL_KARST, paste0(Localrepo_Data,'Validation_Qs9960_T50BestOverall_ChalkPang.csv'))
+
+#OR ##
+#read_in results
+Qs_VAL_NSElog=read.csv(paste0(Localrepo_Data, '/Validation/Qs9960_Validation_NSElog_ChalkPang.csv'),stringsAsFactors =  F)
+dim(Qs_VAL_NSElog) #9960 by 4019
+Qs_NSElog = Qs_VAL_NSElog[,2:4019] # remove the 'sample 1' 
+
+```
+
+#data wrangling to get the time series in a handy format
+```{r}
+
+##Check output and transpose for time series analysis
+# dim(Y_QsVAL_KARST)
+# 
+# Qst_ValP=t(Y_QsVAL_KARST)
+# dim(Qst_ValP)
+
+
+Qst_NSElog=t(Qs_NSElog)
+dim(Qst_NSElog)
+QstV_TNSElog= Qst_NSElog[1:4018,] # remove the last value which is NA
+```
+
+# Filter out the Top 50 from the VAlidation time series
+
+```{r}
+
+library(hydroGOF)
+
+#Francesca Pianosi (Co-Author at University of Bristl) recommends to keep the original Par file close, so you can record both the KGE / NSE values and the parameters. This for evaluation of your parameters :)
+
+#NSE and NSElog values
+for(i in 1:dim(QstV_TNSElog)[2]){
+  Par_PangNSElog$NSE[i] <-  hydroGOF::NSE(QstV_TNSElog[,i],Qs_10y, na.rm=T)
+  Par_PangNSElog$NSElog[i] <- rwrfhydro::NseLog(QstV_TNSElog[,i],Qs_10y, na.rm=T)
+}
+
+summary(Par_PangNSElog$NSE) # -8.2 - 0.41 # 
+summary(Par_PangNSElog$NSElog) # -30.4 -0.45   
+#source new function by Pool 2018
+source(paste0(Localrepo,'Pool2018_RNPfunction.r'))
+
+#Combined
+for(i in 1:dim(QstV_TNSElog)[2]){
+  Par_PangNSElog$RNP[i] <-  RNP(QstV_TNSElog[,i],Qs_10y)
+  RNP_values = RNP_full(sim=QstV_TNSElog[,i],obs=Qs_10y, out.type = 'full')
+  Par_PangNSElog$RNP_Alpha[i] <- RNP_values[[1]]
+  Par_PangNSElog$RNP_bias[i] <- RNP_values[[2]]
+  Par_PangNSElog$RNP_r[i] <- RNP_values[[3]]
+      }
+summary(Par_PangNSElog$RNP) # -1.3 - 0.59 #  compared to 0.5321 - 0.8105 Karstic merged calibration  
+# -1.48 to 0.61 #10K run
+summary(Par_PangNSElog$RNP_Alpha) #.56 - .92 
+summary(Par_PangNSElog$RNP_bias) #0.11 - 3.37 
+summary(Par_PangNSElog$RNP_r) # -0.16 - 0.71 
+
+
+##Select the top 50 based on logged NSE
+###Note to run only once
+Par_PangNSElog <- tibble::rownames_to_column(Par_PangNSElog, "VALUE")
+
+T50_Pang_NSElog=dplyr::top_n(Par_PangNSElog, 50, Par_PangNSElog$NSElog) 
+T50_Pang_rownames= T50_Pang_NSElog$VALUE
+summary(T50_Pang_NSElog$NSElog) #0.22 - 0.38 #0.357 - 0.458 compared to CALIBRATION?
+summary(T50_Pang_NSElog$RNP) #0.28 - 0.55  #.61 - 0.72 compared to 0.5321 - 0.8105
+
+
+library(reshape2)
+QstV_BEST = as.data.frame(Qst_ValP[,as.numeric(T50_Pang_rownames)])
+QstV_BEST$D = D_10y
+# write.csv(QstV_BEST,'~/safe_trails/GSA_outputs/Validation/QstV_Best_TimeSeries.csv',row.names = F )
+#melt to plot the lines seperately
+mDQstV_BEST =  melt(QstV_BEST, id='D')
+names(mDQstV_BEST) <- c('D', 'modelrun', 'Qs')
+
+
+# write.csv(T_NSElog_XT50,'~/safe_trails/GSA_outputs/Validation/T_Vali_QS_KarstPANG_C39027_NSElg_T50.csv',row.names = F )
+# write.csv(T_BEST_T50_X,'~/safe_trails/GSA_outputs/Validation/T_Vali_QS_KarstPANG_C39027_Best_T50.csv',row.names = F )
+
+```
+
+plot
+```{r}
+
+#melt to plot the lines seperately
+mDQstV_BEST =  melt(QstV_BEST, id='D')
+names(mDQstV_BEST) <- c('D', 'modelrun', 'Qs')
+
+library(ggplot2)
+TS_BEST_T50=ggplot() +
+  scale_y_log10(limits = c(0.05,35))+ geom_line(data = mDQstV_BEST, aes(x = D, y = Qs, group = modelrun, color='BEST'), size = 1, alpha = 0.1)+ xlab('')+ylab('Qs (mm/d)')+
+  geom_line(data = Pang_10y, aes(y=discharge_spec, x = D , color='Obs'))+
+  scale_color_manual('', labels=c('BEST'='Qs Best Overall','Obs' = 'Observed'),values = c('Obs' = 'black','BEST'='#1b9e77'))+
+  theme_classic() #+theme(legend.position = 'none',axis.title.x=element_blank(),axis.text.x=element_blank(),axis.text.y = element_text(size = 16),axis.title.y = element_text(size = 18))
+
+TS_BEST_T50
+
+```
+#end

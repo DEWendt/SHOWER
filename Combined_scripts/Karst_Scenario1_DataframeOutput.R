@@ -98,7 +98,7 @@ S1_CAMELS_KarsticModule=function(P, PET, D, par){
 
   #reservoir storage run
   QEco_Ks=quantile(GS_B$Qb,par[8],names = F, na.rm=T)     # Determine the amount of Qbeco from Qeco and the calculated baseflow (Qb)
-  GS_B$Qres = ifelse(GS_B$Qb-QEco_Ks>0, 
+  GS_S1$Qres = ifelse(GS_B$Qb-QEco_Ks>0, 
                      GS_B$Qb-QEco_Ks, 0)                  # in Scenario 1, the Qres (remainder flow) is defined here as Qb-Qbeco
   
   #Define initial conditions for reservoir
